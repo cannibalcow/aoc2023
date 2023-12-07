@@ -1,32 +1,27 @@
 use nom::{
-    bytes::complete::{is_not, tag, take_till, take_until},
-    character::{
-        complete::{alphanumeric0, digit0, digit1},
-        is_digit,
-    },
-    sequence::delimited,
-    IResult, InputTakeAtPosition,
+    branch::alt, bytes::complete::tag, character::complete::digit1, combinator::map_res, IResult,
 };
 
 advent_of_code::solution!(2);
 
-#[allow(dead_code)]
+#[derive(Debug)]
 struct Game {
     id: usize,
-    green: u32,
-    blue: u32,
-    red: u32,
+    subsets: Vec<Vec<SubSet>>,
 }
 
-#[allow(dead_code)]
-enum Color {
-    Red(u32),
-    Green(u32),
-    Blue(u32),
+#[derive(Debug)]
+enum SubSet {
+    Red(usize),
+    Green(usize),
+    Blue(usize),
 }
 
-#[allow(dead_code, unused_variables)]
 pub fn part_one(input: &str) -> Option<u32> {
+    let games = input
+        .lines()
+        .map(|line| parse_row(line))
+        .collect::<Vec<Game>>();
     None
 }
 
@@ -35,45 +30,145 @@ pub fn part_two(input: &str) -> Option<u32> {
     None
 }
 
-#[allow(dead_code)]
-fn game_id_parser(input: &str) -> IResult<&str, &str> {
-    let (a, b) = take_until(":")(input)?;
-    println!("a: {}", a);
-    println!("b: {}", b);
-    let (c, d) = take_till(|c| c.is_digit())(b)?;
-    println!("c: {:?}", c);
-    println!("d: {:?}", d);
+fn parse_game_id(input: &str) -> IResult<&str, Token> {
+    let v = tag("Game ")(input)?;
+    let v3 = map_res(digit1, |s: &str| s.parse::<usize>())(v.0)?;
 
-    let e = digit0(c)?;
-
-    println!("e: {:?}", e);
-
-    digit0(b)
+    Ok((v3.0, Token::Game(v3.1)))
 }
 
-#[allow(dead_code, unused_variables)]
-fn parse_line(input: &str) -> Game {
-    Game {
-        id: 1,
-        green: 1,
-        blue: 1,
-        red: 1,
+fn parse_color(input: &str) -> IResult<&str, Token> {
+    let v = alt((tag("red"), tag("blue"), tag("green")))(input)?;
+    let token = match v.1 {
+        "red" => Token::Color(Color::Red),
+        "green" => Token::Color(Color::Green),
+        "blue" => Token::Color(Color::Blue),
+        _ => panic!("invalid color"),
+    };
+    Ok((v.0, token))
+}
+
+fn parse_semicolon(input: &str) -> IResult<&str, Token> {
+    let v = tag(";")(input)?;
+    Ok((v.0, Token::SemiColon))
+}
+
+fn parse_colon(input: &str) -> IResult<&str, Token> {
+    let v = tag(":")(input)?;
+    Ok((v.0, Token::Colon))
+}
+
+fn parse_comma(input: &str) -> IResult<&str, Token> {
+    let v = tag(",")(input)?;
+    Ok((v.0, Token::Comma))
+}
+
+fn parse_space(input: &str) -> IResult<&str, Token> {
+    let v = tag(" ")(input)?;
+    Ok((v.0, Token::WhiteSpace))
+}
+
+fn parse_number(input: &str) -> IResult<&str, Token> {
+    let v = digit1(input)?;
+    let vv = map_res(digit1, |s: &str| s.parse::<usize>())(v.1)?;
+
+    Ok((v.0, Token::Number(vv.1)))
+}
+
+fn parse_row(input: &str) -> Game {
+    let mut tokens = vec![];
+    let mut parsed = input;
+
+    while !parsed.is_empty() {
+        let (left, token) = alt((
+            parse_game_id,
+            parse_number,
+            parse_color,
+            parse_space,
+            parse_semicolon,
+            parse_colon,
+            parse_comma,
+        ))(parsed)
+        .unwrap();
+
+        if token != Token::WhiteSpace && token != Token::Colon && token != Token::Comma {
+            tokens.push(token);
+        }
+        parsed = left;
     }
+
+    let mut game = Game {
+        id: match tokens.first().unwrap() {
+            Token::Game(v) => *v,
+            _ => panic!("invalid game id"),
+        },
+        subsets: vec![],
+    };
+
+    let output = tokens.clone().into_iter().fold(Vec::new(), |mut acc, x| {
+        if x == Token::SemiColon || acc.is_empty() {
+            acc.push(Vec::new());
+        } else {
+            acc.last_mut().unwrap().push(x.clone());
+        }
+        acc
+    });
+
+    for set in output {
+        let colors = set
+            .chunks(2)
+            .map(|w| {
+                let value = match w[0] {
+                    Token::Number(v) => v,
+                    _ => panic!("color value"),
+                };
+                let color = match &w[1] {
+                    Token::Color(c) => match c {
+                        Color::Red => SubSet::Red(value),
+                        Color::Green => SubSet::Green(value),
+                        Color::Blue => SubSet::Blue(value),
+                    },
+                    _ => panic!("inavlid color"),
+                };
+                color
+            })
+            .collect::<Vec<SubSet>>();
+
+        game.subsets.push(colors);
+    }
+
+    return game;
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+enum Token {
+    Colon,
+    Color(Color),
+    Comma,
+    Game(usize),
+    Number(usize),
+    SemiColon,
+    WhiteSpace,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::parse_game_id;
 
+    use super::*;
+    const INPUT: &str =
+        "Game 1: 1 red, 5 blue, 1 green; 16 blue, 3 red; 6 blue, 5 red; 4 red, 7 blue, 1 green";
     #[test]
-    fn parse_game_id() {
-        let result = game_id_parser(
-            "Game 1: 1 red, 5 blue, 1 green; 16 blue, 3 red; 6 blue, 5 red; 4 red, 7 blue, 1 green",
-        );
-        match result {
-            Ok(v) => println!("FUck: {:?}", v),
-            Err(e) => println!("Error: {:?}", e),
-        }
+    fn parse_game_id_test() {
+        let (_, id) = parse_game_id(INPUT).unwrap();
+        assert_eq!(id, Token::Game(1))
     }
 
     #[test]
