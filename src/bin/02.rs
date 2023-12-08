@@ -1,3 +1,5 @@
+use std::{collections::HashMap, ops::Add};
+
 use nom::{
     branch::alt, bytes::complete::tag, character::complete::digit1, combinator::map_res, IResult,
 };
@@ -17,12 +19,57 @@ enum SubSet {
     Blue(usize),
 }
 
+fn is_possible(subsets: &Vec<Vec<SubSet>>) -> bool {
+    for subset in subsets {
+        let mut sums: HashMap<&str, usize> = HashMap::new();
+        for s in subset {
+            match s {
+                SubSet::Red(v) => sums.entry("red").or_insert(*v).add(*v),
+                SubSet::Green(v) => sums.entry("green").or_insert(*v).add(*v),
+                SubSet::Blue(v) => sums.entry("blue").or_insert(*v).add(*v),
+            };
+        }
+
+        match sums.get("red") {
+            Some(v) => {
+                if *v > 12 {
+                    return false;
+                }
+            }
+            None => {}
+        }
+
+        match sums.get("green") {
+            Some(v) => {
+                if *v > 13 {
+                    return false;
+                }
+            }
+            None => {}
+        }
+
+        match sums.get("blue") {
+            Some(v) => {
+                if *v > 14 {
+                    return false;
+                }
+            }
+            None => {}
+        }
+    }
+
+    true
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
-    let games = input
+    let games: u32 = input
         .lines()
         .map(|line| parse_row(line))
-        .collect::<Vec<Game>>();
-    None
+        .filter(|game| is_possible(&game.subsets))
+        .map(|game| game.id as u32)
+        .sum();
+
+    Some(games)
 }
 
 #[allow(dead_code, unused_variables)]
