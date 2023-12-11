@@ -2,9 +2,8 @@ use advent_of_code::template::commands::{all, download, read, scaffold, solve};
 use args::{parse, AppArguments};
 
 mod args {
+    use advent_of_code::template::Day;
     use std::process;
-
-    use advent_of_code::Day;
 
     pub enum AppArguments {
         Download {
@@ -15,11 +14,13 @@ mod args {
         },
         Scaffold {
             day: Day,
+            download: bool,
         },
         Solve {
             day: Day,
             release: bool,
             time: bool,
+            dhat: bool,
             submit: Option<u8>,
         },
         All {
@@ -44,12 +45,14 @@ mod args {
             },
             Some("scaffold") => AppArguments::Scaffold {
                 day: args.free_from_str()?,
+                download: args.contains("--download"),
             },
             Some("solve") => AppArguments::Solve {
                 day: args.free_from_str()?,
                 release: args.contains("--release"),
                 submit: args.opt_value_from_str("--submit")?,
                 time: args.contains("--time"),
+                dhat: args.contains("--dhat"),
             },
             Some(x) => {
                 eprintln!("Unknown command: {x}");
@@ -80,13 +83,19 @@ fn main() {
             AppArguments::All { release, time } => all::handle(release, time),
             AppArguments::Download { day } => download::handle(day),
             AppArguments::Read { day } => read::handle(day),
-            AppArguments::Scaffold { day } => scaffold::handle(day),
+            AppArguments::Scaffold { day, download } => {
+                scaffold::handle(day);
+                if download {
+                    download::handle(day);
+                }
+            }
             AppArguments::Solve {
                 day,
                 release,
                 time,
+                dhat,
                 submit,
-            } => solve::handle(day, release, time, submit),
+            } => solve::handle(day, release, time, dhat, submit),
         },
     };
 }

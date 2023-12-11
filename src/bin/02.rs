@@ -14,14 +14,14 @@ struct Game {
 
 #[derive(Debug)]
 enum SubSet {
-    Red(usize),
-    Green(usize),
-    Blue(usize),
+    Red(u32),
+    Green(u32),
+    Blue(u32),
 }
 
 fn is_possible(subsets: &Vec<Vec<SubSet>>) -> bool {
     for subset in subsets {
-        let mut sums: HashMap<&str, usize> = HashMap::new();
+        let mut sums: HashMap<&str, u32> = HashMap::new();
         for s in subset {
             match s {
                 SubSet::Red(v) => sums.entry("red").or_insert(*v).add(*v),
@@ -30,41 +30,64 @@ fn is_possible(subsets: &Vec<Vec<SubSet>>) -> bool {
             };
         }
 
-        match sums.get("red") {
-            Some(v) => {
-                if *v > 12 {
-                    return false;
-                }
+        if let Some(v) = sums.get("red") {
+            if *v > 12 {
+                return false;
             }
-            None => {}
         }
 
-        match sums.get("green") {
-            Some(v) => {
-                if *v > 13 {
-                    return false;
-                }
+        if let Some(v) = sums.get("green") {
+            if *v > 13 {
+                return false;
             }
-            None => {}
         }
 
-        match sums.get("blue") {
-            Some(v) => {
-                if *v > 14 {
-                    return false;
-                }
+        if let Some(v) = sums.get("blue") {
+            if *v > 14 {
+                return false;
             }
-            None => {}
         }
     }
 
     true
 }
 
+fn line_powers(sums: &mut HashMap<&str, u32>, subsets: &[Vec<SubSet>]) -> u32 {
+    let row: Vec<&SubSet> = subsets.iter().flatten().collect();
+    //    let mut sums: HashMap<&str, u32> = HashMap::new();
+    for sub in row {
+        match sub {
+            SubSet::Red(v) => {
+                if v > sums.entry("red").or_insert(0) {
+                    sums.entry("red").and_modify(|f| *f = *v).or_insert(0);
+                }
+            }
+            SubSet::Green(v) => {
+                if v > sums.entry("green").or_insert(0) {
+                    sums.entry("green").and_modify(|f| *f = *v).or_insert(0);
+                }
+            }
+            SubSet::Blue(v) => {
+                if v > sums.entry("blue").or_insert(0) {
+                    sums.entry("blue").and_modify(|f| *f = *v).or_insert(0);
+                }
+            }
+        };
+    }
+
+    let green = *sums.get("green").unwrap();
+    let blue = *sums.get("blue").unwrap();
+    let red = *sums.get("red").unwrap();
+
+    sums.clear();
+
+    green * blue * red
+}
+
 pub fn part_one(input: &str) -> Option<u32> {
     let games: u32 = input
         .lines()
-        .map(|line| parse_row(line))
+        .map(parse_row)
         .filter(|game| is_possible(&game.subsets))
         .map(|game| game.id as u32)
         .sum();
@@ -72,9 +95,14 @@ pub fn part_one(input: &str) -> Option<u32> {
     Some(games)
 }
 
-#[allow(dead_code, unused_variables)]
 pub fn part_two(input: &str) -> Option<u32> {
-    None
+    let mut sums: HashMap<&str, u32> = HashMap::new();
+    let solution: u32 = input
+        .lines()
+        .map(parse_row)
+        .map(|game| line_powers(&mut sums, &game.subsets))
+        .sum();
+    Some(solution)
 }
 
 fn parse_game_id(input: &str) -> IResult<&str, Token> {
@@ -117,7 +145,7 @@ fn parse_space(input: &str) -> IResult<&str, Token> {
 
 fn parse_number(input: &str) -> IResult<&str, Token> {
     let v = digit1(input)?;
-    let vv = map_res(digit1, |s: &str| s.parse::<usize>())(v.1)?;
+    let vv = map_res(digit1, |s: &str| s.parse::<u32>())(v.1)?;
 
     Ok((v.0, Token::Number(vv.1)))
 }
@@ -169,22 +197,21 @@ fn parse_row(input: &str) -> Game {
                     Token::Number(v) => v,
                     _ => panic!("color value"),
                 };
-                let color = match &w[1] {
+                match &w[1] {
                     Token::Color(c) => match c {
                         Color::Red => SubSet::Red(value),
                         Color::Green => SubSet::Green(value),
                         Color::Blue => SubSet::Blue(value),
                     },
                     _ => panic!("inavlid color"),
-                };
-                color
+                }
             })
             .collect::<Vec<SubSet>>();
 
         game.subsets.push(colors);
     }
 
-    return game;
+    game
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -200,7 +227,7 @@ enum Token {
     Color(Color),
     Comma,
     Game(usize),
-    Number(usize),
+    Number(u32),
     SemiColon,
     WhiteSpace,
 }
@@ -227,6 +254,6 @@ mod tests {
     #[test]
     fn test_part_two() {
         let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-        assert_eq!(result, None);
+        assert_eq!(result, Some(2286));
     }
 }

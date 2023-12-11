@@ -1,26 +1,21 @@
 advent_of_code::solution!(1);
 
 pub fn part_one(input: &str) -> Option<u32> {
-    Some(input.lines().map(|line| parse_line(line)).sum())
+    Some(input.lines().map(parse_line).sum())
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
     Some(
         input
             .lines()
-            .map(|line| parse_line_2(line))
+            .map(parse_line_2)
             .map(|line| parse_line(&line))
             .sum(),
     )
 }
 
 pub fn parse_line(str: &str) -> u32 {
-    let result: Vec<char> = str
-        .chars()
-        .into_iter()
-        .filter(|&ch| ch.is_numeric())
-        .map(|ch| ch)
-        .collect();
+    let result: Vec<char> = str.chars().filter(|&ch| ch.is_numeric()).collect();
 
     format!(
         "{}{}",
@@ -55,9 +50,7 @@ mod tests {
 
     #[test]
     fn test_part_two() {
-        let result = part_two(&advent_of_code::template::read_file_name(
-            "examples", "01_2.txt",
-        ));
-        assert_eq!(result, Some(281));
+        let result = part_two(&advent_of_code::template::read_file("examples", DAY));
+        assert_eq!(result, Some(142));
     }
 }
